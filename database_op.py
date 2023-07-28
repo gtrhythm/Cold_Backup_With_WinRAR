@@ -24,13 +24,15 @@ def create_database(db_path):
     c = conn.cursor()
     #create table file, primary key is file_id, key: md5, size, file_name, created_time, modified_time,file_type, and a forign key is folder_id, which is the primary  key of table directory, a forign key is rar_id, which is the primary  key of table rar
     c.execute('''CREATE TABLE file
-                    (file_id INTEGER PRIMARY KEY, md5 TEXT, size INTEGER, file_name TEXT, created_time TEXT, modified_time TEXT, file_type TEXT, folder_id INTEGER, rar_id INTEGER, CONSTRAINT fk_directory_id FOREIGN KEY(folder_id) REFERENCES directory(directory_id),CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
+                    (file_id INTEGER PRIMARY KEY, md5 TEXT, size INTEGER, file_name TEXT, created_time TEXT, modified_time TEXT, file_type TEXT, folder_id INTEGER, rar_id INTEGER,random_file_name TEXT, CONSTRAINT fk_directory_id FOREIGN KEY(folder_id) REFERENCES directory(directory_id),CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
     #create table directory, primary key is directory_id, key: directory_name, created_time, modified_time, and a forign key is parent_id, which is the primary  key of table directory
     c.execute('''CREATE TABLE directory
                     (directory_id INTEGER PRIMARY KEY, is_root BOOLEAN NOT NULL CHECK ( is_root IN (0, 1)), directory_name TEXT, created_time TEXT, modified_time TEXT, parent_id INTEGER, CONSTRAINT fk_parent_id FOREIGN KEY(parent_id) REFERENCES directory(directory_id))''')
     #create table rar, primary key is rar_id, key: rar_name, created_time, rar_password, rar_md5, rar_size
     c.execute('''CREATE TABLE rar
-                    (rar_id INTEGER PRIMARY KEY, rar_name TEXT, created_time TEXT, rar_password TEXT, rar_md5 TEXT, rar_size INTEGER)''')
+                    (rar_id INTEGER PRIMARY KEY, rar_name TEXT, created_time TEXT, rar_password TEXT, rar_md5 TEXT, rar_size INTEGER, rar_count INTEGER)''')
+    
+    
     #commit
     conn.commit()
     #close
@@ -41,7 +43,7 @@ def add_rar(c, rar_name, created_time, rar_password, rar_md5, rar_size):
     #insert rar_name, created_time, rar_password, rar_md5, rar_size into table rar
     c.execute("INSERT INTO rar (rar_name, created_time, rar_password, rar_md5, rar_size) VALUES (?, ?, ?, ?, ?)", (rar_name, created_time, rar_password, rar_md5, rar_size))
 
-#the parameter parent_path does not include the head path, for example, if the head path is /home/xxx, then the parent_path is xxx
+#the parameter parent_path does not include the head path, for example, if the head path is \\home\\xxx, then the parent_path is xxx
 def find_parent_id(c, parent_path):
     #find root path, return the directory_id of the root directory
     #select directory_id from table directory where is_root = 1
@@ -56,10 +58,10 @@ def find_parent_id(c, parent_path):
     #if the parent_path is empty, then return the root_id
     if parent_path == '':
         return root_id
-    #split the parent_path by '/', return a list of folder name
-    if(parent_path[-1]=='/'):
+    #split the parent_path by '\\', return a list of folder name
+    if(parent_path[-1]=='\\'):
         parent_path=parent_path[0:-1]
-    folder_list = parent_path.split('/')
+    folder_list = parent_path.split('\\')
     print("folder_list: " + str(folder_list))
     i=0
     last_id=root_id
@@ -79,14 +81,16 @@ def find_parent_id(c, parent_path):
 
     return last_id
 
+
+
     
 
 # given a cursor, add directory into timebase, directory_name, created_time, modified_time, and the full path of its parent folder
 def add_directory(c, directory_path, created_time, modified_time, is_root=0):
-    folder_name=directory_path.split('/')[-1]
+    folder_name=directory_path.split('\\')[-1]
     #print directory_path and folder_name with annotation
     print("directory_path: " + directory_path + " folder_name: " + folder_name)
-    parent_path=directory_path.replace(directory_path.split('/')[-1],'')
+    parent_path=directory_path.replace(directory_path.split('\\')[-1],'')
     parent_id = find_parent_id(c, parent_path)
     #print parent_path and parent_id with annotation
     print("parent_path: " + parent_path + " parent_id: " + str(parent_id))
@@ -95,8 +99,8 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
 
 #given a cursor, add file into timebase, md5, size, file_name, created_time, modified_time, file_type, folder_id
 def add_file(c, md5, size, file_path, created_time, modified_time, file_type):
-    file_name=file_path.split('/')[-1]
-    parent_id=find_parent_id(c, file_path.replace(file_path.split('/')[-1],''))
+    file_name=file_path.split('\\')[-1]
+    parent_id=find_parent_id(c, file_path.replace(file_path.split('\\')[-1],''))
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
     c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?, ?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id))
@@ -108,7 +112,7 @@ if __name__ == '__main__':
     #get the parent path
     parent_path = os.path.dirname(current_path)
     #set the database path
-    db_path = parent_path + '/database/database.db'
+    db_path = parent_path + '\\database\\database.db'
     #create timebase
     create_database(db_path)
     #connect to database
@@ -119,10 +123,11 @@ if __name__ == '__main__':
     add_rar(c, 'test.rar', '2017-12-12 12:12:12', '123456', '123456', 123456)
     #add directory into timebase
     add_directory(c, '', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 1)
-    add_directory(c, '/home', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
-    add_directory(c, '/home/xxx', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
+    add_directory(c, '\\home', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
+    add_directory(c, '\\home\\xxx', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
+    add_directory(c, '\\home\\xxx2', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
     #add file into timebase
-    add_file(c, '123456', 123456, '/home/xxx/xxx.txt', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 'txt')
+    add_file(c, '123456', 123456, '\\home\\xxx\\xxx.txt', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 'txt')
     #commit
     conn.commit()
     #print the table file
