@@ -13,6 +13,7 @@ import random
 #-2: the root folder does not exist
 FOLDER_DOES_NOT_EXIST=-11111
 ROOT_FOLDER_DOES_NOT_EXIST=-22222
+FILE_DOES_NOT_EXIST=-33333
 
 # Create timebase,set path
 def create_database(db_path):
@@ -44,7 +45,7 @@ def add_rar(c, rar_name, created_time, rar_password, rar_md5, rar_size):
     c.execute("INSERT INTO rar (rar_name, created_time, rar_password, rar_md5, rar_size) VALUES (?, ?, ?, ?, ?)", (rar_name, created_time, rar_password, rar_md5, rar_size))
 
 #the parameter parent_path does not include the head path, for example, if the head path is \\home\\xxx, then the parent_path is xxx
-def find_parent_id(c, parent_path):
+def find_folder_id(c, folder_path):
     #find root path, return the directory_id of the root directory
     #select directory_id from table directory where is_root = 1
     c.execute("SELECT directory_id FROM directory WHERE is_root = 1")
@@ -55,13 +56,14 @@ def find_parent_id(c, parent_path):
         return ROOT_FOLDER_DOES_NOT_EXIST
     root_id = root_id[0]
     print(root_id)
-    #if the parent_path is empty, then return the root_id
-    if parent_path == '':
+    #if the folder_path is empty, then return the root_id
+    if folder_path == '':
         return root_id
-    #split the parent_path by '\\', return a list of folder name
-    if(parent_path[-1]=='\\'):
-        parent_path=parent_path[0:-1]
-    folder_list = parent_path.split('\\')
+    #if the last character of folder_path is os.sep, then remove it.for example, if folder_path is \\home\\xxx\\, then remove the last os.sep, and folder_path becomes \\home\\xxx
+    if(folder_path[-1]==os.sep):
+        folder_path=folder_path[0:-1]
+    #split the folder_path by os.sep, return a list of folder name
+    folder_list = folder_path.split(os.sep)
     print("folder_list: " + str(folder_list))
     i=0
     last_id=root_id
@@ -77,21 +79,34 @@ def find_parent_id(c, parent_path):
             last_id = fetch_result[0]
         else:
             return FOLDER_DOES_NOT_EXIST
-        #if the folder does not exist, then return -1
+        #if the folder does not exist, then return FOLDER_DOES_NOT_EXIST
 
     return last_id
 
 
-
+def find_file_id(c, file_path):
+    #find root path, return the directory_id of the root directory
+    folder_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
+    #select file_id from table file where file_name = file_path.split(os.sep)[-1] and folder_id = folder_id
+    c.execute("SELECT file_id FROM file WHERE file_name = ? AND folder_id = ?", (file_path.split(os.sep)[-1], folder_id))
+    #fetch one
+    file_id = c.fetchone()
+    if file_id is None:
+        print("file does not exist")
+        return FILE_DOES_NOT_EXIST
+    file_id = file_id[0]
+    print("find file_id: " + str(file_id))
+    print(file_id)
+    return file_id
     
 
 # given a cursor, add directory into timebase, directory_name, created_time, modified_time, and the full path of its parent folder
 def add_directory(c, directory_path, created_time, modified_time, is_root=0):
-    folder_name=directory_path.split('\\')[-1]
+    folder_name=directory_path.split(os.sep)[-1]
     #print directory_path and folder_name with annotation
     print("directory_path: " + directory_path + " folder_name: " + folder_name)
-    parent_path=directory_path.replace(directory_path.split('\\')[-1],'')
-    parent_id = find_parent_id(c, parent_path)
+    parent_path=directory_path.replace(directory_path.split(os.sep)[-1],'')
+    parent_id = find_folder_id(c, parent_path)
     #print parent_path and parent_id with annotation
     print("parent_path: " + parent_path + " parent_id: " + str(parent_id))
     #insert directory_name, created_time, modified_time, parent_id into table directory
@@ -99,8 +114,8 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
 
 #given a cursor, add file into timebase, md5, size, file_name, created_time, modified_time, file_type, folder_id
 def add_file(c, md5, size, file_path, created_time, modified_time, file_type):
-    file_name=file_path.split('\\')[-1]
-    parent_id=find_parent_id(c, file_path.replace(file_path.split('\\')[-1],''))
+    file_name=file_path.split(os.sep)[-1]
+    parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
     c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?, ?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id))
@@ -139,6 +154,8 @@ if __name__ == '__main__':
     #print the table rar
     c.execute("SELECT * FROM rar")
     print(c.fetchall())
+    #test find_file_id
+    print(find_file_id(c, '\\home\\xxx\\xxx.txt'))
     #close
     conn.close()
     #remove the database
