@@ -11,9 +11,11 @@ import random
 #define error code in python
 #-1: the folder does not exist
 #-2: the root folder does not exist
-FOLDER_DOES_NOT_EXIST=-11111
-ROOT_FOLDER_DOES_NOT_EXIST=-22222
-FILE_DOES_NOT_EXIST=-33333
+FOLDER_DOES_NOT_EXIST=-123456.11312312
+ROOT_FOLDER_DOES_NOT_EXIST=-22222.12343241
+FILE_DOES_NOT_EXIST=-33333.134124321
+FOLDER_ALREADY_EXISTS=-44444.21424123412
+FILE_ALREADY_EXISTS=-121312.1029309128309
 
 # Create timebase,set path
 def create_database(db_path):
@@ -102,6 +104,23 @@ def find_file_id(c, file_path):
 
 # given a cursor, add directory into timebase, directory_name, created_time, modified_time, and the full path of its parent folder
 def add_directory(c, directory_path, created_time, modified_time, is_root=0):
+    #make sure that the directory_path does not end with os.sep
+    #check if the directory_path is empty
+    if directory_path != '':
+        #remove the last os.sep, if the last character of directory_path is os.sep
+        if(directory_path[-1]==os.sep):
+            directory_path=directory_path[0:-1]
+
+    #check if the directory_path is already in the database
+    folder_id=find_folder_id(c, directory_path)
+    if isinstance(folder_id, int):
+        print("directory already exists")
+        return FOLDER_ALREADY_EXISTS
+    #check if the parent folder of the directory_path is already in the database
+    parent_id=find_folder_id(c, directory_path.replace(directory_path.split(os.sep)[-1],''))
+    if parent_id == FOLDER_DOES_NOT_EXIST:
+        add_directory(c, directory_path.replace(directory_path.split(os.sep)[-1],''), created_time, modified_time, 0)
+
     folder_name=directory_path.split(os.sep)[-1]
     #print directory_path and folder_name with annotation
     print("directory_path: " + directory_path + " folder_name: " + folder_name)
@@ -114,8 +133,15 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
 
 #given a cursor, add file into timebase, md5, size, file_name, created_time, modified_time, file_type, folder_id
 def add_file(c, md5, size, file_path, created_time, modified_time, file_type):
+    if find_file_id(c, file_path) != FILE_DOES_NOT_EXIST:
+        print("file already exists")
+        return FILE_ALREADY_EXISTS
+    
     file_name=file_path.split(os.sep)[-1]
     parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
+    if parent_id == FOLDER_DOES_NOT_EXIST:
+        add_directory(c, file_path.replace(file_path.split(os.sep)[-1],''), created_time, modified_time, 0)
+        parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
     c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?, ?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id))
@@ -139,10 +165,11 @@ if __name__ == '__main__':
     #add directory into timebase
     add_directory(c, '', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 1)
     add_directory(c, '\\home', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
-    add_directory(c, '\\home\\xxx', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
+    add_directory(c, '\\home\\xxx\\aaa\\bbb\\ddd', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
     add_directory(c, '\\home\\xxx2', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
     #add file into timebase
     add_file(c, '123456', 123456, '\\home\\xxx\\xxx.txt', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 'txt')
+    add_file(c, '123456', 123456, '\\home\\xxx\\test1\\test2\\test3\\test4\\xxx.txt', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 'txt')
     #commit
     conn.commit()
     #print the table file
