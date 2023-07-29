@@ -35,6 +35,10 @@ def create_database(db_path):
     c.execute('''CREATE TABLE rar
                     (rar_id INTEGER PRIMARY KEY, rar_name TEXT, created_time TEXT, rar_password TEXT, rar_md5 TEXT, rar_size INTEGER, rar_count INTEGER)''')
     
+    #create table sub_volume, primary key is sub_volume_id, key: sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, sub_volume_count, and a forign key is rar_id, which is the primary  key of table rar
+    c.execute('''CREATE TABLE sub_volume
+                    (sub_volume_id INTEGER PRIMARY KEY, sub_volume_name TEXT, created_time TEXT, sub_volume_password TEXT, sub_volume_md5 TEXT, sub_volume_size INTEGER, sub_volume_count INTEGER, rar_id INTEGER, CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
+    
     
     #commit
     conn.commit()
@@ -42,9 +46,9 @@ def create_database(db_path):
     conn.close()
 
 # given a cursor, add rar file into database, rar_name, created_time, rar_password, rar_md5, rar_size
-def add_rar(c, rar_name, created_time, rar_password, rar_md5, rar_size):
+def add_rar(c, rar_name, created_time, rar_password, rar_md5, rar_size,rar_count=0):
     #insert rar_name, created_time, rar_password, rar_md5, rar_size into table rar
-    c.execute("INSERT INTO rar (rar_name, created_time, rar_password, rar_md5, rar_size) VALUES (?, ?, ?, ?, ?)", (rar_name, created_time, rar_password, rar_md5, rar_size))
+    c.execute("INSERT INTO rar (rar_name, created_time, rar_password, rar_md5, rar_size, rar_count) VALUES (?, ?, ?, ?, ?, ?)", (rar_name, created_time, rar_password, rar_md5, rar_size, rar_count))
     #get the rar_id of the rar file that has just been added
     c.execute("SELECT rar_id FROM rar WHERE rar_name = ? AND created_time = ? AND rar_password = ? AND rar_md5 = ? AND rar_size = ?", (rar_name, created_time, rar_password, rar_md5, rar_size))
     #return the rar_id
@@ -139,7 +143,7 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
     c.execute("INSERT INTO directory (is_root, directory_name, created_time, modified_time, parent_id) VALUES (?, ?, ?, ?, ?)", (is_root, folder_name, created_time, modified_time, parent_id))
 
 #given a cursor, add file into database, md5, size, file_name, created_time, modified_time, file_type, folder_id
-def add_file(c, md5, size, file_path, created_time, modified_time, file_type):
+def add_file(c, md5, size, file_path, created_time, modified_time, file_type, rar_id=None):
     if find_file_id(c, file_path) != FILE_DOES_NOT_EXIST:
         print("file already exists")
         return FILE_ALREADY_EXISTS
@@ -151,7 +155,7 @@ def add_file(c, md5, size, file_path, created_time, modified_time, file_type):
         parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
-    c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id) VALUES (?, ?, ?, ?, ?, ?, ?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id))
+    c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id, rar_id) VALUES (?, ?, ?, ?, ?, ?, ?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id, rar_id))
 
 class File_Database(object):
     db_path=None
@@ -177,6 +181,20 @@ class File_Database(object):
         self.cursor = self.conn.cursor()
         self.cur_rar_id=None
 
+    def add_rar(self,rar_name, created_time, rar_password, rar_md5, rar_size,rar_count=0):
+        self.cur_rar_id=add_rar(self.cursor, rar_name, created_time, rar_password, rar_md5, rar_size)
+        return self.cur_rar_id
+    
+    def add_sub_volume(self,sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size):
+        self.cursor.execute("INSERT INTO sub_volume (sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, rar_id) VALUES (?, ?, ?, ?, ?, ?)", (sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, self.cur_rar_id))
+    
+    def updata_rar(self,rar_id,rar_name, created_time, rar_password, rar_md5, rar_size):
+        self.cursor.execute("UPDATE rar SET rar_name = ?, created_time = ?, rar_password = ?, rar_md5 = ?, rar_size = ? WHERE rar_id = ?", (rar_name, created_time, rar_password, rar_md5, rar_size, rar_id))
+        self.cur_rar_id=rar_id
+
+    def updata_cur_rar(self,rar_name, created_time, rar_password, rar_md5, rar_size):
+        self.cursor.execute("UPDATE rar SET rar_name = ?, created_time = ?, rar_password = ?, rar_md5 = ?, rar_size = ? WHERE rar_id = ?", (rar_name, created_time, rar_password, rar_md5, rar_size, self.cur_rar_id))
+
     def add_directory(self,directory_path):
         created_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(directory_path)))
         modified_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(directory_path)))
@@ -190,7 +208,7 @@ class File_Database(object):
             file_type=file_path.split('.')[-1]
         except:
             file_type=''
-        add_file(c, get_md5.get_md5(file_path), os.path.getsize(file_path), stored_file_path, created_time, modified_time, file_type)
+        add_file(self.cursor, get_md5.get_md5(file_path), os.path.getsize(file_path), file_path, created_time, modified_time, file_type, self.cur_rar_id)
 
     def only_add_file(self,file_path):
         #if the file_path is a file, then add it into database;if not, skip it
@@ -222,77 +240,16 @@ class File_Database(object):
         print(self.cursor.fetchall())
     
     def commit(self):
+        self.cur_rar_id=None
         self.conn.commit()
 
     def close(self):
         self.conn.close()
     
     def rollback(self):
+        self.cur_rar_id=None
         self.conn.rollback()
         
-
-
-
-# #main function
-# if __name__ == '__main__':
-#     #get the current path
-#     current_path = os.getcwd()
-#     #get the parent path
-#     parent_path = os.path.dirname(current_path)
-#     #set the database path
-#     db_path = parent_path + '\\database\\database.db'
-#     #create database
-#     create_database(db_path)
-#     #connect to database
-#     conn = sqlite3.connect(db_path)
-#     #create cursor
-#     c = conn.cursor()
-
-#     file_list=traverse_read_directory.traverse_read_directory("E:\\")
-#     add_directory(c, '', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 1)
-#     for file_i in range(0,1000):
-#         #if the file_list[file_i] is a directory, then add it into database,set created_time and modified_time to which the file_list[file_i] was created and modified
-#         if os.path.isdir(file_list[file_i]):
-#             created_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(file_list[file_i])))
-#             modified_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(file_list[file_i])))
-#             stored_file_path=file_list[file_i].replace('E:','')
-#             print('dir,stored file path:{}'.format(stored_file_path))
-#             add_directory(c, stored_file_path, created_time, modified_time, 0)
-#         #if the file_list[file_i] is a file, then add it into database,set created_time and modified_time to which the file_list[file_i] was created and modified
-#         elif os.path.isfile(file_list[file_i]):
-#             created_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(file_list[file_i])))
-#             modified_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(file_list[file_i])))
-#             stored_file_path=file_list[file_i].replace('E','')
-#             print("file,stored_file_path:{}".format(stored_file_path))
-#             add_file(c, get_md5.get_md5(file_list[file_i]), os.path.getsize(file_list[file_i]), stored_file_path, created_time, modified_time, file_list[file_i].split('.')[-1])
-        
-
-#     # #add rar file into database
-#     # add_rar(c, 'test.rar', '2017-12-12 12:12:12', '123456', '123456', 123456)
-#     # #add directory into database
-#     # add_directory(c, '', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 1)
-#     # add_directory(c, '\\home', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
-#     # add_directory(c, '\\home\\xxx\\aaa\\bbb\\ddd', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
-#     # add_directory(c, '\\home\\xxx2', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 0)
-#     # #add file into database
-#     # add_file(c, '123456', 123456, '\\home\\xxx\\xxx.txt', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 'txt')
-#     # add_file(c, '123456', 123456, '\\home\\xxx\\test1\\test2\\test3\\test4\\xxx.txt', '2017-12-12 12:12:12', '2017-12-12 12:12:12', 'txt')
-#     #commit
-#     conn.commit()
-
-#     #show all results in database
-#     c.execute('SELECT * FROM FILE')
-#     print(c.fetchall())
-
-#     c.execute('SELECT * FROM DIRECTORY')
-#     print(c.fetchall())
-
-#     print(find_file_id(c, '\\home\\xxx\\xxx.txt'))
-#     #close
-#     conn.close()
-
-
-
 
 #test database_class
 if __name__ == '__main__':

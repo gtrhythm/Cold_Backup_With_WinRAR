@@ -17,6 +17,9 @@ def deal_with_space(rar_command):
     #delete the redundant element in matches
     matches=list(set(matches))
     for match in matches:
+        #if match does not contains space, skip it
+        if match.find(' ')==-1:
+            continue
         #replace the space with double quotes
         rar_command=rar_command.replace('/'+match+'/', '/\"'+match+'\"/')
     rar_command=rar_command.replace('/',os.sep)
@@ -33,12 +36,15 @@ def gen_rar_name(name_pattern, time_str='',data_str='',random_str=''):
     #use name_pattern.replace function to replace the placeholder with the real value
     return name_pattern.replace('{time}',time_str).replace('{data}',data_str).replace('{random_str}',random_str)+'.rar'
 
-def gen_rar_command(rar_exec_path='C:\program files\WinRAR',rar_file_path='filename.rar',rar_password='-hpThePassWord',rar_level='-m5',rar_method='-rr10p',verification='-t', file_list_txt='file_list.txt'):
+def gen_rar_command(rar_exec_path='D:\program files\WinRAR\WinRAR.exe',rar_file_path='filename.rar',rar_password='-hpThePassWord',rar_level='-m5',rar_method='-rr10p',verification='-t', file_list_txt='file_list.txt'):
     rar_exec_path=deal_with_space(rar_exec_path)
     return rar_exec_path+' a '+rar_password+' '+rar_level+' '+rar_method+' '+verification+' '+rar_file_path+' @'+file_list_txt
 
-def gen_rar_subvolume_command(rar_exec_path='C:\program files\WinRAR',rar_file_path='filename.rar',rar_password='-hpThePassWord',rar_level='-m5',rar_method='-rr10p',verification='-t', sub_volume='-v1g',file_list_txt='file_list.txt'):
+def gen_rar_subvolume_command(rar_exec_path='D\program files\WinRAR\WinRAR.exe',rar_file_path='filename.rar',rar_password='-hpThePassWord',rar_level='-m5',rar_method='-rr10p',verification='-t', sub_volume='-v1g',file_list_txt='file_list.txt'):
     rar_exec_path=deal_with_space(rar_exec_path)
     return rar_exec_path+' a '+rar_password+' '+rar_level+' '+rar_method+' '+verification+' '+sub_volume+' '+rar_file_path+' @'+file_list_txt
     
-
+gen_rar_command()
+print(gen_rar_command())
+rar_op(gen_rar_command())
+print('finish')

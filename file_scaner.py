@@ -11,10 +11,12 @@ import tempfile
 class File_Scanner(object):
     traversed_list=None
     file_list_txt=None
+    subvolumue_list_txt=None
     working_directory=None
     database_class=None
     current_file_cursor=0
     stored_file_cursor=0 #the cursor of the file that has been stored in the database, the next file to be stored is stored_file_cursor+1
+    #NOTICE: It does not mean that the file after the stored_file_cursor had been stored in the database, but all of the file before the stored_file_cursor had been stored in the database
     sub_volume_size='1g' #shoulb be str, like 500m, 1.5g, 20k......contact with -v, like -v500m, -v1.5g, -v20k
     rar_size_limit=1000 #the size limit of the rar file, the unit is MB
     rar_rr_percent=10 #the redundancy percent of the rar file, the unit is percent
@@ -24,6 +26,7 @@ class File_Scanner(object):
     encrypted_name=True #whether the rar file name is encrypted
     enable_sub_volume=False #if the current file size is out of the limit, set this flag to True. If this flag is True, enable sub volume.
     random_str_length=6 #the length of the random string
+    password_length=120 #the length of the password
 
     
 
@@ -32,7 +35,7 @@ class File_Scanner(object):
 
     
 
-    def __init__(self, working_directory,database_path,sub_volume_size='1g',rar_size_limit=1000,rar_rr_percent=10,rar_level=5,rar_name_pattern='{time}_{data}_{random_str}',encrypted_name=True,rar_exec_path='C:\program files\WinRAR',rar_folder='',random_str_length=6):
+    def __init__(self, working_directory,database_path,sub_volume_size='1g',rar_size_limit=1000,rar_rr_percent=10,rar_level=5,rar_name_pattern='{time}_{data}_{random_str}',encrypted_name=True,rar_exec_path='C:\program files\WinRAR',rar_folder='',random_str_length=6,password_length=120):
         #set working directory
         self.working_directory=working_directory
         #set the directory that the program worked into self.working_directory
@@ -40,7 +43,9 @@ class File_Scanner(object):
         #traverse the working directory and get the file list
         self.traversed_list=self.traverse_read_directory(self.working_directory)
         #set the file list txt file path as stored_file_list.txt in the temp directory
-        self.file_list_txt=tempfile.gettempdir()+'\\stored_file_list.txt'
+        self.file_list_txt=os.path.join(tempfile.gettempdir(),'\\stored_file_list.txt')
+        #set the sub volume list txt file path as sub_volume_list.txt in the temp directory
+        self.subvolumue_list_txt=os.path.join(tempfile.gettempdir(),'\\sub_volume_list.txt')
         #initialize the database class
         self.database_class=database_op.File_Database(database_path)
         #set the sub volume size
@@ -63,9 +68,30 @@ class File_Scanner(object):
         self.enable_sub_volume=False
         #set the random string length
         self.random_str_length=random_str_length
-        
+        self.password_length=password_length
+
+    def gen_rar_name(self):
+        return rar_op.gen_rar_name(self.rar_name_pattern,datetime.datetime.now().strftime('%H-%M-%S'),datetime.datetime.now().strftime('%Y-%m-%d'),rar_op.generate_random_str(self.random_str_length))   
+    
+    # compress an rar file into several sub volume
+    def compress_sub_volume(self,rar_file_path):
+        with open(self.subvolumue_list_txt,'w') as f:
+            f.write(rar_file_path)
+        rar_command=rar_op.gen_rar_subvolume_command(self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',verification='-t',sub_volume='-v'+self.sub_volume_size,file_list_txt=self.subvolumue_list_txt)
+        rar_op.rar_op(rar_command)
+
+        os.remove(self.subvolumue_list_txt)
+            
+
 
     def traverse_one_time(self):
+        #gen rar info
+        rar_name=self.gen_rar_name()
+        rar_file_path=os.path.join(self.rar_folder,rar_name)
+        rar_password=rar_op.generate_random_str(self.password_length)
+
+
+
         currentsize=0
         current_file_list=[]
         #traverse the file list,all the files that has been stored in the database will be skipped
@@ -94,16 +120,6 @@ class File_Scanner(object):
             self.current_file_cursor+=1
             current_file_list.append(self.traversed_list[file_i])
         
-        #get the current data with the format of YYYYMMDD, use library datetime
-        current_data=datetime.datetime.now().strftime('%Y-%m-%d')
-        #get the current time with the format of HHMMSS, use library datetime
-        current_time=datetime.datetime.now().strftime('%H-%M-%S')
-        #get the random string with the length of 120
-        random_str=rar_op.generate_random_str(self.random_str_length)
-        #generate the rar file name
-        rar_file_name=rar_op.gen_rar_name(self.rar_name_pattern,current_time,current_data,random_str)
-        #generate the rar file path with os.join
-        rar_file_path=os.path.join(self.rar_folder,rar_file_name)
         #save the file list into a txt file in the temp directory, use tempfile, with open
         with open(self.file_list_txt,'w') as f:
             for file_path in current_file_list:
@@ -115,7 +131,24 @@ class File_Scanner(object):
             rar_command=rar_op.gen_rar_command(self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',verification='-t',file_list_txt=self.file_list_txt)
         #execute the rar command
         rar_op.rar_op(rar_command)
-        
+        #rar command done, update the rar info in the database,commit the modification to the database
+
+        #get the md5 of the rar file
+        rar_md5=get_md5.get_md5(rar_file_path)
+        #get the created time of the rar file
+        rar_created_time=datetime.datetime.fromtimestamp(os.path.getctime(rar_file_path)).strftime('%Y-%m-%d %H:%M:%S')
+        #get the size of the rar file
+        rar_size=os.path.getsize(rar_file_path)
+        #update the rar info in the database
+        self.database_class.add_rar(rar_name,rar_created_time,rar_password,rar_md5,rar_size)
+        #insert the file info into the database
+        for file_path in current_file_list:
+            self.database_class.add_file(file_path)
+        #commit the modification to the database
+        self.database_class.commit()
+        self.stored_file_cursor=self.current_file_cursor
+        #delete the file list txt file
+        os.remove(self.file_list_txt)
 
 
     
