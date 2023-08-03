@@ -6,6 +6,7 @@ import os
 import glob
 import datetime
 import tempfile
+import traverse_read_directory
 
 #all path should be absolute path except the work path of WinRAR
 class File_Scanner(object):
@@ -22,11 +23,11 @@ class File_Scanner(object):
     rar_rr_percent=10 #the redundancy percent of the rar file, the unit is percent
     rar_level=5 #the compression level of the rar file, the range is 0-5
     rar_name_pattern='{time}_{data}_{random_str}' #the pattern of the rar file name, the placeholder should be {time}, {data}, {random_str}
-    rar_folder=''
     encrypted_name=True #whether the rar file name is encrypted
     enable_sub_volume=False #if the current file size is out of the limit, set this flag to True. If this flag is True, enable sub volume.
     random_str_length=6 #the length of the random string
     password_length=120 #the length of the password
+    rar_folder=''
 
     
 
@@ -41,9 +42,11 @@ class File_Scanner(object):
         #set the directory that the program worked into self.working_directory
         os.chdir(self.working_directory)
         #traverse the working directory and get the file list
-        self.traversed_list=self.traverse_read_directory(self.working_directory)
+        self.traversed_list=traverse_read_directory.traverse_read_directory(self.working_directory)
         #set the file list txt file path as stored_file_list.txt in the temp directory
-        self.file_list_txt=os.path.join(tempfile.gettempdir(),'\\stored_file_list.txt')
+        print(tempfile.gettempdir())
+        self.file_list_txt=os.path.join(tempfile.gettempdir(),'stored_file_list.txt')
+        print(self.file_list_txt)
         #set the sub volume list txt file path as sub_volume_list.txt in the temp directory
         self.subvolumue_list_txt=os.path.join(tempfile.gettempdir(),'\\sub_volume_list.txt')
         #initialize the database class
@@ -126,9 +129,16 @@ class File_Scanner(object):
                 f.write(file_path+'\n')
         #generate the rar command
         if self.enable_sub_volume:
-            rar_command=rar_op.gen_rar_subvolume_command(self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',verification='-t',sub_volume='-v'+self.sub_volume_size,file_list_txt=self.file_list_txt)
+            rar_command=rar_op.gen_rar_subvolume_command\
+                (self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',\
+                rar_level='-m'+str(self.rar_level),\
+                rar_method='-rr'+str(self.rar_rr_percent)+'p',\
+                verification='-t',sub_volume='-v'+self.sub_volume_size,file_list_txt=self.file_list_txt)
         else:
-            rar_command=rar_op.gen_rar_command(self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',verification='-t',file_list_txt=self.file_list_txt)
+            rar_command=rar_op.gen_rar_command\
+                (self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',\
+                 rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',\
+                    verification='-t',file_list_txt=self.file_list_txt)
         #execute the rar command
         rar_op.rar_op(rar_command)
         #rar command done, update the rar info in the database,commit the modification to the database
@@ -151,5 +161,9 @@ class File_Scanner(object):
         os.remove(self.file_list_txt)
 
 
-    
+#test main
+if __name__=='__main__':
+    #test File_Scanner
+    file_scanner=File_Scanner('E:\\自动备份','E:\\workspace\\file compression\\database\\database.db',rar_exec_path='D:\\program files\\WinRAR\\WinRAR.exe',rar_folder='E:\\workspace\\file compression\\rar_files')
+    file_scanner.traverse_one_time()
     

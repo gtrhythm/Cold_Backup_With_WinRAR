@@ -155,7 +155,7 @@ def add_file(c, md5, size, file_path, created_time, modified_time, file_type, ra
         parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
-    c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id, rar_id) VALUES (?, ?, ?, ?, ?, ?, ?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id, rar_id))
+    c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id, rar_id) VALUES (?, ?, ?, ?, ?, ?, ?,?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id, rar_id))
 
 class File_Database(object):
     db_path=None
