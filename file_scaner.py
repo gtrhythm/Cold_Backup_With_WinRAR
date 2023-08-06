@@ -97,6 +97,9 @@ class File_Scanner(object):
 
         currentsize=0
         current_file_list=[]
+        print("current file cursor is:",self.current_file_cursor)
+        print("stored file cursor is:",self.stored_file_cursor)
+        # print('traversed_list:',self.traversed_list)   
         #traverse the file list,all the files that has been stored in the database will be skipped
         for file_i in range(self.stored_file_cursor,self.traversed_list.__len__()):
             #if the path is a directory, skip it
@@ -113,8 +116,12 @@ class File_Scanner(object):
                     self.enable_sub_volume=True
                     self.current_file_cursor+=1
                     current_file_list.append(self.traversed_list[file_i])
+                    print("break because of the size of all files too large")
                     break
                 else:
+                    print("break because of countering large file")
+                    print(self.traversed_list[file_i])
+                    print('current_size:{}'.format(currentsize))
                     self.enable_sub_volume=False
                     break
             else:
@@ -126,7 +133,12 @@ class File_Scanner(object):
         #save the file list into a txt file in the temp directory, use tempfile, with open
         with open(self.file_list_txt,'w') as f:
             for file_path in current_file_list:
-                f.write(file_path+'\n')
+                #replace absolute path with relative path
+                relative_path=file_path.replace(self.working_directory+os.sep,'')
+                #compare relative path and file path
+                print("relative path:{},file path:{}".format(relative_path,file_path))
+                f.write(relative_path+'\n')
+        print("current file list is:",current_file_list)
         #generate the rar command
         if self.enable_sub_volume:
             rar_command=rar_op.gen_rar_subvolume_command\
@@ -164,6 +176,6 @@ class File_Scanner(object):
 #test main
 if __name__=='__main__':
     #test File_Scanner
-    file_scanner=File_Scanner('E:\\自动备份','E:\\workspace\\file compression\\database\\database.db',rar_exec_path='D:\\program files\\WinRAR\\WinRAR.exe',rar_folder='E:\\workspace\\file compression\\rar_files')
+    file_scanner=File_Scanner('D:\\program files','E:\\workspace\\file compression\\database\\database.db',rar_exec_path='D:\\program files\\WinRAR\\WinRAR.exe',rar_folder='E:\\workspace\\file compression\\rar_files')
     file_scanner.traverse_one_time()
     
