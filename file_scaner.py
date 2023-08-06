@@ -8,7 +8,11 @@ import datetime
 import tempfile
 import traverse_read_directory
 import logging
+import logging_level
 
+logging.basicConfig(level = logging_level.logging_level,format = '%(asctime)s - %(filename)s - %(lineno)d - %(funcName)s - %(name)s - %(levelname)s - %(message)s')
+
+logger_file_scaner= logging.getLogger("file_scaner")
 
 #all path should be absolute path except the work path of WinRAR
 class File_Scanner(object):
@@ -46,9 +50,9 @@ class File_Scanner(object):
         #traverse the working directory and get the file list
         self.traversed_list=traverse_read_directory.traverse_read_directory(self.working_directory)
         #set the file list txt file path as stored_file_list.txt in the temp directory
-        print(tempfile.gettempdir())
+        logger_file_scaner.debug("%s",[tempfile.gettempdir()])
         self.file_list_txt=os.path.join(tempfile.gettempdir(),'stored_file_list.txt')
-        print(self.file_list_txt)
+        logger_file_scaner.debug("%s",[self.file_list_txt])
         #set the sub volume list txt file path as sub_volume_list.txt in the temp directory
         self.subvolumue_list_txt=os.path.join(tempfile.gettempdir(),'\\sub_volume_list.txt')
         #initialize the database class
@@ -99,9 +103,9 @@ class File_Scanner(object):
 
         currentsize=0
         current_file_list=[]
-        print("current file cursor is:",self.current_file_cursor)
-        print("stored file cursor is:",self.stored_file_cursor)
-        # print('traversed_list:',self.traversed_list)   
+        logger_file_scaner.debug("%s",["current file cursor is:",self.current_file_cursor])
+        logger_file_scaner.debug("%s",["stored file cursor is:",self.stored_file_cursor])
+        # logger_file_scaner.debug("%s",['traversed_list:',self.traversed_list])   
         #traverse the file list,all the files that has been stored in the database will be skipped
         for file_i in range(self.stored_file_cursor,self.traversed_list.__len__()):
             #if the path is a directory, skip it
@@ -118,12 +122,12 @@ class File_Scanner(object):
                     self.enable_sub_volume=True
                     self.current_file_cursor+=1
                     current_file_list.append(self.traversed_list[file_i])
-                    print("break because of the size of all files too large")
+                    logger_file_scaner.debug("%s",["break because of the size of all files too large"])
                     break
                 else:
-                    print("break because of countering large file")
-                    print(self.traversed_list[file_i])
-                    print('current_size:{}'.format(currentsize))
+                    logger_file_scaner.debug("%s",["break because of countering large file"])
+                    logger_file_scaner.debug("%s",[self.traversed_list[file_i]])
+                    logger_file_scaner.debug("%s",['current_size:{}'.format(currentsize)])
                     self.enable_sub_volume=False
                     break
             else:
@@ -138,9 +142,9 @@ class File_Scanner(object):
                 #replace absolute path with relative path
                 relative_path=file_path.replace(self.working_directory+os.sep,'')
                 #compare relative path and file path
-                print("relative path:{},file path:{}".format(relative_path,file_path))
+                logger_file_scaner.debug("%s",["relative path:{},file path:{}".format(relative_path,file_path)])
                 f.write(relative_path+'\n')
-        print("current file list is:",current_file_list)
+        logger_file_scaner.debug("%s",["current file list is:",current_file_list])
         #generate the rar command
         if self.enable_sub_volume:
             rar_command=rar_op.gen_rar_subvolume_command\

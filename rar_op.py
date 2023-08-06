@@ -4,6 +4,11 @@ import random
 import string
 import re
 import logging
+import logging_level
+
+logging.basicConfig(level = logging_level.logging_level,format = '%(asctime)s - %(filename)s - %(lineno)d - %(funcName)s - %(name)s - %(levelname)s - %(message)s')
+
+logger_rar_op= logging.getLogger("rar_op")
 
 
 def generate_random_str(length=120):
@@ -30,9 +35,9 @@ def deal_with_space(rar_command):
 
 
 def rar_op(rar_command):
-    print(rar_command)
+    logger_rar_op.debug("%s",[rar_command])
     result=os.popen(rar_command)
-    print(result.read())
+    logger_rar_op.debug("%s",[result.read()])
 
 def gen_rar_name(name_pattern, time_str='',data_str='',random_str=''):
     #use name_pattern.replace function to replace the placeholder with the real value
@@ -48,6 +53,6 @@ def gen_rar_subvolume_command(rar_exec_path='D\program files\WinRAR\WinRAR.exe',
     return rar_exec_path+' a '+rar_password+' '+rar_level+' '+rar_method+' '+verification+' '+sub_volume+' '+rar_file_path+' @'+file_list_txt
     
 # gen_rar_command()
-# print(gen_rar_command())
+# logger_rar_op.debug("%s",[gen_rar_command()])
 # rar_op(gen_rar_command())
-# print('finish')
+# logger_rar_op.debug("%s",['finish'])

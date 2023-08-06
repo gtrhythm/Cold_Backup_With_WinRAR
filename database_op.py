@@ -8,8 +8,9 @@ import random
 import traverse_read_directory
 import get_md5
 import logging
+import logging_level
 
-logging.basicConfig(level = logging.INFO,format = '%(asctime)s - %(filename)s - %(lineno)d - %(funcName)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level = logging_level.logging_level,format = '%(asctime)s - %(filename)s - %(lineno)d - %(funcName)s - %(name)s - %(levelname)s - %(message)s')
 
 logger_database_op = logging.getLogger("database_op")
 
@@ -69,10 +70,10 @@ def find_folder_id(c, folder_path):
     #fetch one
     root_id = c.fetchone()
     if root_id is None:
-        print("root does not exist")
+        logger_database_op.debug("%s",["root does not exist"])
         return ROOT_FOLDER_DOES_NOT_EXIST
     root_id = root_id[0]
-    print(root_id)
+    logger_database_op.debug("%s",[root_id])
     #if the folder_path is empty, then return the root_id
     if folder_path == '':
         return root_id
@@ -81,18 +82,18 @@ def find_folder_id(c, folder_path):
         folder_path=folder_path[0:-1]
     #split the folder_path by os.sep, return a list of folder name
     folder_list = folder_path.split(os.sep)
-    print("folder_list: " + str(folder_list))
+    logger_database_op.debug("%s",["folder_list: " + str(folder_list)])
     i=0
     last_id=root_id
     #find the splited folder in each layer, respectively
     for i in range(1,folder_list.__len__()):
-        print("i: " + str(i) + " folder_list[i]: " + folder_list[i]+ " last_id: " + str(last_id))
+        logger_database_op.debug("%s",["i: " + str(i) + " folder_list[i]: " + folder_list[i]+ " last_id: " + str(last_id)])
         #select directory_id from table directory where directory_name = folder_list[i] and parent_id = root_id
         c.execute("SELECT directory_id FROM directory WHERE directory_name = ? AND parent_id = ?", (folder_list[i], last_id))
         #fetch 
         fetch_result = c.fetchone()
         if fetch_result is not None:
-            print("c.fetchone:",fetch_result)
+            logger_database_op.debug("%s",["c.fetchone:",fetch_result])
             last_id = fetch_result[0]
         else:
             return FOLDER_DOES_NOT_EXIST
@@ -109,11 +110,10 @@ def find_file_id(c, file_path):
     #fetch one
     file_id = c.fetchone()
     if file_id is None:
-        print("file does not exist")
+        logger_database_op.debug("%s",["file does not exist"])
         return FILE_DOES_NOT_EXIST
     file_id = file_id[0]
-    print("find file_id: " + str(file_id))
-    print(file_id)
+    logger_database_op.debug("%s",["find file_id: " + str(file_id)])
     return file_id
     
 
@@ -129,7 +129,7 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
     #check if the directory_path is already in the database
     folder_id=find_folder_id(c, directory_path)
     if isinstance(folder_id, int):
-        print("directory already exists")
+        logger_database_op.debug("%s",["directory already exists"])
         return FOLDER_ALREADY_EXISTS
     #check if the parent folder of the directory_path is already in the database
     parent_id=find_folder_id(c, directory_path.replace(directory_path.split(os.sep)[-1],''))
@@ -138,21 +138,21 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
 
     folder_name=directory_path.split(os.sep)[-1]
     #print directory_path and folder_name with annotation
-    print("directory_path: " + directory_path + " folder_name: " + folder_name)
+    logger_database_op.debug("%s",["directory_path: " + directory_path + " folder_name: " + folder_name])
     parent_path=directory_path.replace(directory_path.split(os.sep)[-1],'')
     parent_id = find_folder_id(c, parent_path)
     if parent_id==ROOT_FOLDER_DOES_NOT_EXIST:
         #means the given folder is root folder
         parent_id=-999999999
     #print parent_path and parent_id with annotation
-    print("parent_path: " + parent_path + " parent_id: " + str(parent_id))
+    logger_database_op.debug("%s",["parent_path: " + parent_path + " parent_id: " + str(parent_id)])
     #insert directory_name, created_time, modified_time, parent_id into table directory
     c.execute("INSERT INTO directory (is_root, directory_name, created_time, modified_time, parent_id) VALUES (?, ?, ?, ?, ?)", (is_root, folder_name, created_time, modified_time, parent_id))
 
 #given a cursor, add file into database, md5, size, file_name, created_time, modified_time, file_type, folder_id
 def add_file(c, md5, size, file_path, created_time, modified_time, file_type, rar_id=None):
     if find_file_id(c, file_path) != FILE_DOES_NOT_EXIST:
-        print("file already exists")
+        logger_database_op.debug("%s",["file already exists"])
         return FILE_ALREADY_EXISTS
     
     file_name=file_path.split(os.sep)[-1]
@@ -163,6 +163,7 @@ def add_file(c, md5, size, file_path, created_time, modified_time, file_type, ra
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
     c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id, rar_id) VALUES (?, ?, ?, ?, ?, ?, ?,?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id, rar_id))
+    logger_database_op.debug("%s",["add file: " + file_path + " into database",", primary id:",c.lastrowid,"parent_id:",parent_id,"rar_id:",rar_id,"file_name:",file_name,"file_type:",file_type,"size:",size,"md5:",md5,"created_time:",created_time,"modified_time:",modified_time])
 
 class File_Database(object):
     db_path=None
@@ -236,15 +237,15 @@ class File_Database(object):
         
     def show_all_files(self):
         self.cursor.execute('SELECT * FROM FILE')
-        print(self.cursor.fetchall())
+        logger_database_op.debug("%s",[self.cursor.fetchall()])
 
     def show_all_directories(self):
         self.cursor.execute('SELECT * FROM DIRECTORY')
-        print(self.cursor.fetchall())
+        logger_database_op.debug("%s",[self.cursor.fetchall()])
 
     def show_all_rars(self):
         self.cursor.execute('SELECT * FROM RAR')
-        print(self.cursor.fetchall())
+        logger_database_op.debug("%s",[self.cursor.fetchall()])
     
     def commit(self):
         self.cur_rar_id=None
