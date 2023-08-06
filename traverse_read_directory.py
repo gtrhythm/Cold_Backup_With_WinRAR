@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 import glob
 import os
+import logging
+
 
 # Traverse all files in a directory,return the list contains all files' path 
 def traverse_read_directory(directory_path):

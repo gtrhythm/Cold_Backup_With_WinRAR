@@ -3,6 +3,8 @@ import winreg
 import random
 import string
 import re
+import logging
+
 
 def generate_random_str(length=120):
     #pick 120 random characters from the set of ascii characters

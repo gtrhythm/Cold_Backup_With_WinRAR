@@ -7,6 +7,8 @@ import glob
 import datetime
 import tempfile
 import traverse_read_directory
+import logging
+
 
 #all path should be absolute path except the work path of WinRAR
 class File_Scanner(object):

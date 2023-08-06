@@ -7,6 +7,13 @@ import datetime
 import random
 import traverse_read_directory
 import get_md5
+import logging
+
+logging.basicConfig(level = logging.INFO,format = '%(asctime)s - %(filename)s - %(lineno)d - %(funcName)s - %(name)s - %(levelname)s - %(message)s')
+
+logger_database_op = logging.getLogger("database_op")
+
+
 
 #since the max length of TEXT is 2^31-1, there is no need to save 
 

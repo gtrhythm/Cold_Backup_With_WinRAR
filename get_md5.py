@@ -1,5 +1,7 @@
 #get md5
 import hashlib
+import logging
+
 
 def get_md5(file_path):
     m = hashlib.md5()
