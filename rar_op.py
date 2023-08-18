@@ -50,6 +50,7 @@ def gen_rar_command(rar_exec_path='D:\program files\WinRAR\WinRAR.exe',rar_file_
 
 def gen_rar_subvolume_command(rar_exec_path='D\program files\WinRAR\WinRAR.exe',rar_file_path='filename.rar',rar_password='-hpThePassWord',rar_level='-m5',rar_method='-rr10p',verification='-t', sub_volume='-v1g',file_list_txt='file_list.txt'):
     rar_exec_path=deal_with_space(rar_exec_path)
+    rar_file_path=deal_with_space(rar_file_path)
     return rar_exec_path+' a '+rar_password+' '+rar_level+' '+rar_method+' '+verification+' '+sub_volume+' '+rar_file_path+' @'+file_list_txt
     
 # gen_rar_command()

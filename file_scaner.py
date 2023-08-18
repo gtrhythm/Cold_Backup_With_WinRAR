@@ -54,7 +54,7 @@ class File_Scanner(object):
         self.file_list_txt=os.path.join(tempfile.gettempdir(),'stored_file_list.txt')
         logger_file_scaner.debug("%s",[self.file_list_txt])
         #set the sub volume list txt file path as sub_volume_list.txt in the temp directory
-        self.subvolumue_list_txt=os.path.join(tempfile.gettempdir(),'\\sub_volume_list.txt')
+        self.subvolumue_list_txt=os.path.join(tempfile.gettempdir(),'sub_volume_list.txt')
         #initialize the database class
         self.database_class=database_op.File_Database(database_path)
         #set the sub volume size
@@ -83,13 +83,39 @@ class File_Scanner(object):
         return rar_op.gen_rar_name(self.rar_name_pattern,datetime.datetime.now().strftime('%H-%M-%S'),datetime.datetime.now().strftime('%Y-%m-%d'),rar_op.generate_random_str(self.random_str_length))   
     
     # compress an rar file into several sub volume
-    def compress_sub_volume(self,rar_file_path):
+    # it is not redundant that we both need rar_file_path and rar_name, the rar_file_path is used to generate rar command, and the rar_name used to get the list of all parts of subvolumes
+    def compress_sub_volume(self,rar_file_path,rar_name,filename,rar_password=''):
+        #generate the sub volume list txt file to store the path of the large file (only contains one file, this is for the consistency of the code)(ok that's because I'm a little lazy -_-|||)
         with open(self.subvolumue_list_txt,'w') as f:
-            f.write(rar_file_path)
-        rar_command=rar_op.gen_rar_subvolume_command(self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',verification='-t',sub_volume='-v'+self.sub_volume_size,file_list_txt=self.subvolumue_list_txt)
+            f.write(filename)
+        rar_command=rar_op.gen_rar_subvolume_command(self.rar_exec_path,rar_file_path,rar_password='-hp'+rar_password,rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',verification='-t',sub_volume='-v'+self.sub_volume_size,file_list_txt=self.subvolumue_list_txt)
         rar_op.rar_op(rar_command)
 
         os.remove(self.subvolumue_list_txt)
+
+        #generate rar file pattern
+        rar_file_path_pattern=self.rar_folder+os.sep+rar_name[0:-4]+'.part*.rar'
+        
+        #generate the sub volume pattern
+        sub_volume_list=glob.glob(rar_file_path_pattern)
+
+        #get the md5, created time, size of all sub volumes
+        sub_volume_md5_list=[]
+        sub_volume_created_time_list=[]
+        sub_volume_size_list=[]
+        for sub_volume in sub_volume_list:
+            sub_volume_md5_list.append(get_md5.get_md5(sub_volume))
+            sub_volume_created_time_list.append(datetime.datetime.fromtimestamp(os.path.getctime(sub_volume)).strftime('%Y-%m-%d %H:%M:%S'))
+            sub_volume_size_list.append(os.path.getsize(sub_volume))
+        
+        #insert the sub volume info into the database
+        for i in range(0,sub_volume_list.__len__()):
+            self.database_class.add_sub_volume(sub_volume_list[i].split(os.sep)[-1],sub_volume_created_time_list[i],sub_volume_md5_list[i],sub_volume_size_list[i])
+        
+        #insert the father rar info into the database
+        #the created time, md5, size does not exist because no real rar file there.
+        self.database_class.add_rar(rar_name,'',rar_password,'',' ',sub_volume_list.__len__())
+
             
 
 
@@ -119,13 +145,17 @@ class File_Scanner(object):
             if currentsize>self.rar_size_limit*1024*1024:
                 #if the size of the single file is out of the rar size limit, set the flag to True, and break the loop
                 if os.path.getsize(self.traversed_list[file_i])>self.rar_size_limit*1024*1024:
-                    self.enable_sub_volume=True
+                    #compress the file into several sub volume without with other small files
+                    logger_file_scaner.debug("%s",["compress the file into several sub volume without with other small files"])
+                    currentsize-=os.path.getsize(self.traversed_list[file_i])
+                    sub_volume_name=self.gen_rar_name()
+                    self.compress_sub_volume(os.path.join(self.rar_folder,sub_volume_name),sub_volume_name,rar_password=rar_op.generate_random_str(self.password_length),filename=self.traversed_list[file_i])
+                    #since the large file has been compressed into sub volumes, we do not break the loop here.
                     self.current_file_cursor+=1
-                    current_file_list.append(self.traversed_list[file_i])
-                    logger_file_scaner.debug("%s",["break because of the size of all files too large"])
-                    break
+                    continue
+
                 else:
-                    logger_file_scaner.debug("%s",["break because of countering large file"])
+                    logger_file_scaner.debug("%s",["break because of the size of all files too large"])
                     logger_file_scaner.debug("%s",[self.traversed_list[file_i]])
                     logger_file_scaner.debug("%s",['current_size:{}'.format(currentsize)])
                     self.enable_sub_volume=False
@@ -182,8 +212,8 @@ class File_Scanner(object):
 #test main
 if __name__=='__main__':
     #test File_Scanner
-    file_scanner=File_Scanner('D:\\program files','E:\\workspace\\file compression\\database\\database.db',rar_exec_path='D:\\program files\\WinRAR\\WinRAR.exe',rar_folder='E:\\workspace\\file compression\\rar_files')
-    for i in range(0,5):
+    file_scanner=File_Scanner('E:\\workspace\\file compression\\large file test','E:\\workspace\\file compression\\database\\database.db',rar_exec_path='D:\\program files\\WinRAR\\WinRAR.exe',rar_folder='E:\\workspace\\file compression\\rar_files')
+    for i in range(0,1):
         logger_file_scaner.info("%s",['traverse one time,i=',i])
         file_scanner.traverse_one_time()
     

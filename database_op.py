@@ -45,7 +45,7 @@ def create_database(db_path):
     
     #create table sub_volume, primary key is sub_volume_id, key: sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, sub_volume_count, and a forign key is rar_id, which is the primary  key of table rar
     c.execute('''CREATE TABLE sub_volume
-                    (sub_volume_id INTEGER PRIMARY KEY, sub_volume_name TEXT, created_time TEXT, sub_volume_password TEXT, sub_volume_md5 TEXT, sub_volume_size INTEGER, sub_volume_count INTEGER, rar_id INTEGER, CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
+                    (sub_volume_id INTEGER PRIMARY KEY, sub_volume_name TEXT, created_time TEXT, sub_volume_md5 TEXT, sub_volume_size INTEGER, sub_volume_count INTEGER, rar_id INTEGER, CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
     
     
     #commit
@@ -200,8 +200,8 @@ class File_Database(object):
         self.cur_rar_id=add_rar(self.cursor, rar_name, created_time, rar_password, rar_md5, rar_size)
         return self.cur_rar_id
     
-    def add_sub_volume(self,sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size):
-        self.cursor.execute("INSERT INTO sub_volume (sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, rar_id) VALUES (?, ?, ?, ?, ?, ?)", (sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, self.cur_rar_id))
+    def add_sub_volume(self,sub_volume_name, created_time,  sub_volume_md5, sub_volume_size):
+        self.cursor.execute("INSERT INTO sub_volume (sub_volume_name, created_time,  sub_volume_md5, sub_volume_size, rar_id) VALUES (?, ?, ?, ?, ?)", (sub_volume_name, created_time, sub_volume_md5, sub_volume_size, self.cur_rar_id))
     
     def updata_rar(self,rar_id,rar_name, created_time, rar_password, rar_md5, rar_size):
         self.cursor.execute("UPDATE rar SET rar_name = ?, created_time = ?, rar_password = ?, rar_md5 = ?, rar_size = ? WHERE rar_id = ?", (rar_name, created_time, rar_password, rar_md5, rar_size, rar_id))
