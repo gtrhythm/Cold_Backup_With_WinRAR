@@ -108,13 +108,18 @@ class File_Scanner(object):
             sub_volume_created_time_list.append(datetime.datetime.fromtimestamp(os.path.getctime(sub_volume)).strftime('%Y-%m-%d %H:%M:%S'))
             sub_volume_size_list.append(os.path.getsize(sub_volume))
         
+        logger_file_scaner.debug("%s",["add rar for subvolume:",rar_name,sub_volume_list.__len__()])
+        self.database_class.add_rar(rar_name,'',rar_password,'',' ',sub_volume_list.__len__())
+
+        self.database_class.add_file(filename)
+
         #insert the sub volume info into the database
         for i in range(0,sub_volume_list.__len__()):
             self.database_class.add_sub_volume(sub_volume_list[i].split(os.sep)[-1],sub_volume_created_time_list[i],sub_volume_md5_list[i],sub_volume_size_list[i])
         
         #insert the father rar info into the database
         #the created time, md5, size does not exist because no real rar file there.
-        self.database_class.add_rar(rar_name,'',rar_password,'',' ',sub_volume_list.__len__())
+        
 
             
 
@@ -124,9 +129,6 @@ class File_Scanner(object):
         rar_name=self.gen_rar_name()
         rar_file_path=os.path.join(self.rar_folder,rar_name)
         rar_password=rar_op.generate_random_str(self.password_length)
-
-
-
         currentsize=0
         current_file_list=[]
         logger_file_scaner.debug("%s",["current file cursor is:",self.current_file_cursor])

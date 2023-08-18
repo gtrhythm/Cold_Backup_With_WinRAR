@@ -45,7 +45,7 @@ def create_database(db_path):
     
     #create table sub_volume, primary key is sub_volume_id, key: sub_volume_name, created_time, sub_volume_password, sub_volume_md5, sub_volume_size, sub_volume_count, and a forign key is rar_id, which is the primary  key of table rar
     c.execute('''CREATE TABLE sub_volume
-                    (sub_volume_id INTEGER PRIMARY KEY, sub_volume_name TEXT, created_time TEXT, sub_volume_md5 TEXT, sub_volume_size INTEGER, sub_volume_count INTEGER, rar_id INTEGER, CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
+                    (sub_volume_id INTEGER PRIMARY KEY, sub_volume_name TEXT, created_time TEXT, sub_volume_md5 TEXT, sub_volume_size INTEGER, rar_id INTEGER, CONSTRAINT fk_rar_id FOREIGN KEY(rar_id) REFERENCES rar(rar_id))''')
     
     
     #commit
@@ -54,6 +54,8 @@ def create_database(db_path):
     conn.close()
 
 # given a cursor, add rar file into database, rar_name, created_time, rar_password, rar_md5, rar_size
+#after add_rar(), THE VALUE OF cur_rar_id WILL BE CHANGED!!!!!!!!
+#so you have to finish all operation of the last rar file before you add the next rar into database, or you have to add_rar first before any operation of sub_volumes of file operations
 def add_rar(c, rar_name, created_time, rar_password, rar_md5, rar_size,rar_count=0):
     #insert rar_name, created_time, rar_password, rar_md5, rar_size into table rar
     c.execute("INSERT INTO rar (rar_name, created_time, rar_password, rar_md5, rar_size, rar_count) VALUES (?, ?, ?, ?, ?, ?)", (rar_name, created_time, rar_password, rar_md5, rar_size, rar_count))
@@ -197,10 +199,12 @@ class File_Database(object):
         self.cur_rar_id=None
 
     def add_rar(self,rar_name, created_time, rar_password, rar_md5, rar_size,rar_count=0):
-        self.cur_rar_id=add_rar(self.cursor, rar_name, created_time, rar_password, rar_md5, rar_size)
+        self.cur_rar_id=add_rar(self.cursor, rar_name, created_time, rar_password, rar_md5, rar_size,rar_count)
+        logger_database_op.debug("%s",["after add_rar, self.cur_rar_id=",self.cur_rar_id])
         return self.cur_rar_id
     
     def add_sub_volume(self,sub_volume_name, created_time,  sub_volume_md5, sub_volume_size):
+        logger_database_op.debug("%s",["in add_sub_volume, self.cur_rar_id=",self.cur_rar_id])
         self.cursor.execute("INSERT INTO sub_volume (sub_volume_name, created_time,  sub_volume_md5, sub_volume_size, rar_id) VALUES (?, ?, ?, ?, ?)", (sub_volume_name, created_time, sub_volume_md5, sub_volume_size, self.cur_rar_id))
     
     def updata_rar(self,rar_id,rar_name, created_time, rar_password, rar_md5, rar_size):
@@ -215,6 +219,7 @@ class File_Database(object):
         modified_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(directory_path)))
         add_directory(self.cursor, directory_path, created_time, modified_time, 0)
 
+    
     def add_file(self,file_path):
         created_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getctime(file_path)))
         modified_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(file_path)))
