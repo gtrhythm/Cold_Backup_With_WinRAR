@@ -148,13 +148,13 @@ class File_Scanner(object):
         #generate the rar command
         if self.enable_sub_volume:
             rar_command=rar_op.gen_rar_subvolume_command\
-                (self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',\
+                (self.rar_exec_path,rar_file_path,rar_password='-hp'+rar_password,\
                 rar_level='-m'+str(self.rar_level),\
                 rar_method='-rr'+str(self.rar_rr_percent)+'p',\
                 verification='-t',sub_volume='-v'+self.sub_volume_size,file_list_txt=self.file_list_txt)
         else:
             rar_command=rar_op.gen_rar_command\
-                (self.rar_exec_path,rar_file_path,rar_password='-hpThePassWord',\
+                (self.rar_exec_path,rar_file_path,rar_password='-hp'+rar_password,\
                  rar_level='-m'+str(self.rar_level),rar_method='-rr'+str(self.rar_rr_percent)+'p',\
                     verification='-t',file_list_txt=self.file_list_txt)
         #execute the rar command
@@ -183,5 +183,7 @@ class File_Scanner(object):
 if __name__=='__main__':
     #test File_Scanner
     file_scanner=File_Scanner('D:\\program files','E:\\workspace\\file compression\\database\\database.db',rar_exec_path='D:\\program files\\WinRAR\\WinRAR.exe',rar_folder='E:\\workspace\\file compression\\rar_files')
-    file_scanner.traverse_one_time()
+    for i in range(0,5):
+        logger_file_scaner.info("%s",['traverse one time,i=',i])
+        file_scanner.traverse_one_time()
     

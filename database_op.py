@@ -78,8 +78,10 @@ def find_folder_id(c, folder_path):
     if folder_path == '':
         return root_id
     #if the last character of folder_path is os.sep, then remove it.for example, if folder_path is \\home\\xxx\\, then remove the last os.sep, and folder_path becomes \\home\\xxx
+    logger_database_op.debug("%s",["folder_path: " + folder_path])
     if(folder_path[-1]==os.sep):
         folder_path=folder_path[0:-1]
+        logger_database_op.debug("%s",["after remove: folder_path: " + folder_path])
     #split the folder_path by os.sep, return a list of folder name
     folder_list = folder_path.split(os.sep)
     logger_database_op.debug("%s",["folder_list: " + str(folder_list)])
@@ -104,7 +106,7 @@ def find_folder_id(c, folder_path):
 
 def find_file_id(c, file_path):
     #find root path, return the directory_id of the root directory
-    folder_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
+    folder_id=find_folder_id(c, os.sep.join(file_path.split(os.sep)[0:-1]))
     #select file_id from table file where file_name = file_path.split(os.sep)[-1] and folder_id = folder_id
     c.execute("SELECT file_id FROM file WHERE file_name = ? AND folder_id = ?", (file_path.split(os.sep)[-1], folder_id))
     #fetch one
@@ -121,6 +123,7 @@ def find_file_id(c, file_path):
 def add_directory(c, directory_path, created_time, modified_time, is_root=0):
     #make sure that the directory_path does not end with os.sep
     #check if the directory_path is empty
+    logger_database_op.debug("%s",["directory_path: " + directory_path])
     if directory_path != '':
         #remove the last os.sep, if the last character of directory_path is os.sep
         if(directory_path[-1]==os.sep):
@@ -132,18 +135,22 @@ def add_directory(c, directory_path, created_time, modified_time, is_root=0):
         logger_database_op.debug("%s",["directory already exists"])
         return FOLDER_ALREADY_EXISTS
     #check if the parent folder of the directory_path is already in the database
-    parent_id=find_folder_id(c, directory_path.replace(directory_path.split(os.sep)[-1],''))
+    parent_id=find_folder_id(c, os.sep.join(directory_path.split(os.sep)[0:-1]))
     if parent_id == FOLDER_DOES_NOT_EXIST:
-        add_directory(c, directory_path.replace(directory_path.split(os.sep)[-1],''), created_time, modified_time, 0)
+        logger_database_op.debug("%s",["parent folder does not find in database,",directory_path])
+        add_directory(c, os.sep.join(directory_path.split(os.sep)[0:-1]), created_time, modified_time, 0)
 
     folder_name=directory_path.split(os.sep)[-1]
     #print directory_path and folder_name with annotation
     logger_database_op.debug("%s",["directory_path: " + directory_path + " folder_name: " + folder_name])
-    parent_path=directory_path.replace(directory_path.split(os.sep)[-1],'')
+    parent_path=os.sep.join(directory_path.split(os.sep)[0:-1])
     parent_id = find_folder_id(c, parent_path)
     if parent_id==ROOT_FOLDER_DOES_NOT_EXIST:
         #means the given folder is root folder
         parent_id=-999999999
+    if parent_id==FOLDER_DOES_NOT_EXIST:
+        logger_database_op.debug("%s",["parent folder does not find in database,",parent_path])
+        raise Exception("parent folder does not find in database")
     #print parent_path and parent_id with annotation
     logger_database_op.debug("%s",["parent_path: " + parent_path + " parent_id: " + str(parent_id)])
     #insert directory_name, created_time, modified_time, parent_id into table directory
@@ -156,10 +163,10 @@ def add_file(c, md5, size, file_path, created_time, modified_time, file_type, ra
         return FILE_ALREADY_EXISTS
     
     file_name=file_path.split(os.sep)[-1]
-    parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
+    parent_id=find_folder_id(c, os.sep.join(file_path.split(os.sep)[0:-1]))
     if parent_id == FOLDER_DOES_NOT_EXIST:
-        add_directory(c, file_path.replace(file_path.split(os.sep)[-1],''), created_time, modified_time, 0)
-        parent_id=find_folder_id(c, file_path.replace(file_path.split(os.sep)[-1],''))
+        add_directory(c, os.sep.join(file_path.split(os.sep)[0:-1]), created_time, modified_time, 0)
+        parent_id=find_folder_id(c, os.sep.join(file_path.split(os.sep)[0:-1]))
 
     #insert md5, size, file_name, created_time, modified_time, file_type, folder_id into table file
     c.execute("INSERT INTO file (md5, size, file_name, created_time, modified_time, file_type, folder_id, rar_id) VALUES (?, ?, ?, ?, ?, ?, ?,?)", (md5, size, file_name, created_time, modified_time, file_type, parent_id, rar_id))
@@ -213,7 +220,11 @@ class File_Database(object):
         modified_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(file_path)))
         #find the type of the file with try and except block
         try:
-            file_type=file_path.split('.')[-1]
+            file_name=file_path.split(os.sep)[-1]
+            if(file_name.find('.')!=-1):
+                file_type=file_name.split('.')[-1]
+            else:
+                file_type=''
         except:
             file_type=''
         add_file(self.cursor, get_md5.get_md5(file_path), os.path.getsize(file_path), file_path, created_time, modified_time, file_type, self.cur_rar_id)
